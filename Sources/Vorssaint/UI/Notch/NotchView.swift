@@ -133,7 +133,9 @@ struct NotchView: View {
         .accessibilityHidden(true)
     }
 
-    private var showsDetail: Bool { service.showingAppPanel || service.selectedMetric != nil }
+    private var showsDetail: Bool {
+        service.showingAppPanel || service.selectedMetric != nil || service.showingKeepAwake
+    }
 
     private var expanded: some View {
         VStack(spacing: NotchLayout.spacing) {
@@ -180,11 +182,18 @@ struct NotchView: View {
                 if showsDetail {
                     NotchIconButton(symbol: "chevron.left", title: l10n.s.obBack, action: service.goBack)
                 }
-                Text(service.showingAppPanel ? "Vorssaint" : service.selectedMetric?.title(l10n.s) ?? text.title)
+                Text(service.showingAppPanel ? "Vorssaint"
+                     : service.showingKeepAwake ? l10n.s.keepAwakeTitle
+                     : service.selectedMetric?.title(l10n.s) ?? text.title)
                     .font(.system(size: 15, weight: .semibold))
                     .lineLimit(1)
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else {
+                if service.selected != .controls, service.modules.contains(.controls) {
+                    NotchIconButton(symbol: "chevron.left", title: NotchModule.controls.title(l10n.language)) {
+                        service.select(.controls)
+                    }
+                }
                 if !NotchQuickAccessConfiguration.current().actions.contains(.explore) {
                     NotchIconButton(symbol: "square.grid.2x2", title: text.sectionsTitle, action: service.toggleSections)
                 }
@@ -254,6 +263,8 @@ struct NotchView: View {
             MenuPanelView(notchSize: service.contentSize)
         } else if let metric = service.selectedMetric {
             MetricDetailView(kind: metric)
+        } else if service.showingKeepAwake {
+            NotchKeepAwakeView(service: service)
         } else if service.modules.isEmpty {
             NotchEmptyView(symbol: "slider.horizontal.3", message: text.empty)
         } else {
