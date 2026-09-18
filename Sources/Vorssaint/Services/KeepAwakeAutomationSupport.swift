@@ -96,7 +96,8 @@ enum KeepAwakeAutomationSupport {
                                                 matchingPolicy: .nextTime) else {
             return picked
         }
-        return candidate > now ? candidate : candidate.addingTimeInterval(24 * 3600)
+        if candidate > now { return candidate }
+        return calendar.date(byAdding: .day, value: 1, to: candidate) ?? candidate.addingTimeInterval(24 * 3600)
     }
 
     static func action(featureAvailable: Bool,
