@@ -55,7 +55,7 @@ extension Strings {
         keepAwakeEndsIn: "남은 시간",
         keepAwakeUntilDisabled: "끌 때까지 유지",
         keepAwakeNormalRules: "Mac이 일반적인 에너지 절약 설정을 따릅니다",
-        keepAwakeUntilLabel: "까지",
+        keepAwakeUntilLabel: "다음 시간까지",
         keepAwakeUntilStart: "시작",
         keepAwakeOptions: "옵션",
         keepAwakeMouseJiggle: "포인터 살짝 움직이기",
