@@ -343,6 +343,7 @@ private struct NotchLongPressButtonStyle: PrimitiveButtonStyle {
     @State private var hovered = false
     @State private var pressed = false
     @State private var pressStart: Date?
+    @State private var cancelled = false
     @Environment(\.isEnabled) private var enabled
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -360,21 +361,39 @@ private struct NotchLongPressButtonStyle: PrimitiveButtonStyle {
             .scaleEffect(reduceMotion ? 1 : pressed ? 0.965 : (active ? 1.022 : 1))
             .animation(reduceMotion ? nil : .spring(response: 0.28, dampingFraction: 0.7), value: pressed)
             .animation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.75), value: hovered)
-            .onHover {
-                hovered = $0
-                if !$0 { pressed = false; pressStart = nil }
-            }
-            .gesture(DragGesture(minimumDistance: 0)
-                .onChanged { _ in
-                    if pressStart == nil { pressStart = Date() }
-                    pressed = true
+            .onHover { hovered = $0 }
+            .overlay {
+                GeometryReader { geo in
+                    Color.clear
+                        .contentShape(Rectangle())
+                        .gesture(DragGesture(minimumDistance: 0, coordinateSpace: .local)
+                            .onChanged { value in
+                                let inside = CGRect(origin: .zero, size: geo.size)
+                                    .insetBy(dx: -20, dy: -20)
+                                    .contains(value.location)
+                                if !inside {
+                                    pressed = false
+                                    cancelled = true
+                                    return
+                                }
+                                if cancelled { return }
+                                if pressStart == nil { pressStart = Date() }
+                                pressed = true
+                            }
+                            .onEnded { _ in
+                                pressed = false
+                                guard !cancelled else {
+                                    cancelled = false
+                                    pressStart = nil
+                                    return
+                                }
+                                let held = pressStart.map { Date().timeIntervalSince($0) } ?? 0
+                                pressStart = nil
+                                cancelled = false
+                                if held >= threshold { longPress() } else { configuration.trigger() }
+                            })
                 }
-                .onEnded { _ in
-                    pressed = false
-                    let held = pressStart.map { Date().timeIntervalSince($0) } ?? 0
-                    pressStart = nil
-                    if held >= threshold { longPress() } else { configuration.trigger() }
-                })
+            }
     }
 }
 
@@ -402,22 +421,27 @@ struct NotchKeepAwakeView: View {
     @AppStorage(DefaultsKey.keepAwakeIconTint) private var keepAwakeIconTint = KeepAwakeIconTint.orange.rawValue
     @State private var untilTime = Date()
     @State private var showingIconPicker = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var pickerTransition: AnyTransition {
+        reduceMotion ? .opacity : .asymmetric(insertion: .move(edge: .trailing),
+                                               removal: .move(edge: .trailing)).combined(with: .opacity)
+    }
+
+    private var controlsTransition: AnyTransition {
+        reduceMotion ? .opacity : .asymmetric(insertion: .move(edge: .leading),
+                                               removal: .move(edge: .leading)).combined(with: .opacity)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             if showingIconPicker {
-                iconPickerPage
-                    .transition(.asymmetric(insertion: .move(edge: .trailing),
-                                            removal: .move(edge: .trailing))
-                        .combined(with: .opacity))
+                iconPickerPage.transition(pickerTransition)
             } else {
-                controlsPage
-                    .transition(.asymmetric(insertion: .move(edge: .leading),
-                                            removal: .move(edge: .leading))
-                        .combined(with: .opacity))
+                controlsPage.transition(controlsTransition)
             }
         }
-        .animation(.easeInOut(duration: 0.2), value: showingIconPicker)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: showingIconPicker)
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
         .frame(maxWidth: .infinity, alignment: .leading)

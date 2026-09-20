@@ -8,7 +8,7 @@ import Carbon.HIToolbox
 /// doubles. Feature choices live only in a disposable test preferences domain.
 enum NotchDestinationContract {
     enum ReviewDefaults { static var current: UserDefaults! }
-    enum NotchContentTransition { case none, reveal, replace }
+    enum NotchContentTransition { case none, reveal, replace, dismiss }
     final class Panel {
         var acceptsKeyFocus = false
         func makeKey() {}
@@ -47,6 +47,7 @@ enum NotchDestinationContract {
         var selectedMetric: MetricDetailKind?
         var expanded = false
         var showingAppPanel = false
+        var showingKeepAwake = false
         var showingSections = false
         var peeking = false
         var pinned = false
@@ -67,9 +68,31 @@ enum NotchDestinationContract {
         func installEventMonitors() {}
         func syncVisibleConsumers() { requestedDetail = selectedMetric }
         func provideHapticFeedback() {}
+        var heldDrag = false
+        var captureControls: Bool?
+        var sectionQuery = ""
+        var highlightedSection: NotchModule?
         func endCaptureControls() {}
         func clearCapture() { captureControlsCancel = nil; captureClose = nil }
         func tearDownPresentation() { expanded = false; presentationTearDowns += 1 }
+        func goBack() {
+            let changesPresentation = selectedMetric != nil || showingAppPanel || showingKeepAwake
+            mutatePresentation(transitionContent: changesPresentation ? .replace : .none) {
+                selectedMetric = nil
+                showingAppPanel = false
+                showingKeepAwake = false
+            }
+            syncVisibleConsumers()
+        }
+        func collapse() {
+            mutatePresentation(transitionContent: expanded ? .dismiss : .none) {
+                expanded = false
+                selectedMetric = nil
+                showingAppPanel = false
+                showingKeepAwake = false
+                showingSections = false
+            }
+        }
     }
 
     static func run(expect: (Bool, String) -> Void) {
@@ -164,6 +187,7 @@ enum NotchDestinationContract {
         launcher.candidates = []
         service.open(.tools)
         expect(launcher.selectedIndex == nil, "an empty Tools module leaves keyboard activation without a target")
+        keepAwakeDetailContracts(defaults: defaults, expect: expect)
         sessionContracts(expect: expect)
     }
 
@@ -291,6 +315,35 @@ enum NotchDestinationContract {
         defaults.set(false, forKey: DefaultsKey.notchReturnHome)
     }
 
+    private static func keepAwakeDetailContracts(defaults: UserDefaults, expect: (Bool, String) -> Void) {
+        let service = Service()
+        defaults.set(true, forKey: AppFeature.keepAwake.availabilityKey)
+        UserDefaults.standard.set(true, forKey: AppFeature.keepAwake.availabilityKey)
+        service.open(.controls, keepAwake: true)
+        expect(service.expanded && service.showingKeepAwake && service.selected == .controls,
+               "opening with keepAwake shows the detail page on the controls module")
+        service.goBack()
+        expect(!service.showingKeepAwake && service.expanded,
+               "going back from the keep-awake detail clears the detail without collapsing")
+        service.open(.controls, keepAwake: true)
+        service.toggleSections()
+        expect(service.showingSections && service.showingKeepAwake,
+               "opening sections from keep-awake preserves the detail flag")
+        service.toggleSections()
+        expect(!service.showingSections && service.showingKeepAwake,
+               "returning from sections restores the keep-awake detail")
+        service.collapse()
+        expect(!service.showingKeepAwake && !service.expanded,
+               "collapsing the island resets the keep-awake detail")
+        defaults.set(false, forKey: AppFeature.keepAwake.availabilityKey)
+        UserDefaults.standard.set(false, forKey: AppFeature.keepAwake.availabilityKey)
+        service.open(.controls, keepAwake: true)
+        expect(!service.showingKeepAwake,
+               "opening keep-awake with the feature disabled does not show the detail")
+        defaults.set(true, forKey: AppFeature.keepAwake.availabilityKey)
+        UserDefaults.standard.set(true, forKey: AppFeature.keepAwake.availabilityKey)
+    }
+
     private static func sessionContracts(expect: (Bool, String) -> Void) {
         let service = Service()
         NotchTimerService.shared = Timer()
@@ -332,5 +385,18 @@ enum NotchDestinationContract {
         service.updateSession { $0.onConsole = true }
         expect(!timer.running && service.presentationSyncs == 2,
                "late session notifications cannot restart a stopped island or timer")
+    }
+}
+
+extension NotchDestinationContract.Service {
+    func toggleSections() {
+        guard captureControls == nil, !heldDrag else { return }
+        if showingSections {
+            open(appPanel: showingAppPanel, metric: selectedMetric, keepAwake: showingKeepAwake)
+        } else {
+            sectionQuery = ""
+            highlightedSection = selected
+            open(appPanel: showingAppPanel, metric: selectedMetric, sections: true, keepAwake: showingKeepAwake)
+        }
     }
 }

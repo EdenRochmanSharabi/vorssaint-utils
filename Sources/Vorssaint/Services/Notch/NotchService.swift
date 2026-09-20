@@ -387,6 +387,7 @@ final class NotchService: ObservableObject {
         guard let panel else { return }
         let destination = module.flatMap { modules.contains($0) ? $0 : nil } ?? reopeningModule
         let metric = metric.flatMap { metricIsAvailable($0) ? $0 : nil }
+        let keepAwake = keepAwake && AppFeature.keepAwake.isAvailable
         let changesPresentation = !expanded || selected != destination
             || showingAppPanel != appPanel || selectedMetric != metric || showingSections != sections
             || showingKeepAwake != keepAwake
@@ -590,11 +591,11 @@ final class NotchService: ObservableObject {
     func toggleSections() {
         guard captureControls == nil, !heldDrag else { return }
         if showingSections {
-            open(appPanel: showingAppPanel, metric: selectedMetric)
+            open(appPanel: showingAppPanel, metric: selectedMetric, keepAwake: showingKeepAwake)
         } else {
             sectionQuery = ""
             highlightedSection = selected
-            open(appPanel: showingAppPanel, metric: selectedMetric, sections: true)
+            open(appPanel: showingAppPanel, metric: selectedMetric, sections: true, keepAwake: showingKeepAwake)
         }
     }
 
