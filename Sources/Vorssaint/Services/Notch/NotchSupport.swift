@@ -882,6 +882,13 @@ struct NotchGeometry: Equatable {
         return CGSize(width: expandedWidth,
                       height: min(preferredHeight, screen.height - 48 - quickAccessBottomInset))
     }
+    func keepAwakeSize(active: Bool) -> CGSize {
+        var preferredHeight = safeContentTop + NotchLayout.chromeHeight + (active ? 215 : 255)
+        if layout == .custom { preferredHeight = min(preferredHeight, customHeight) }
+        return CGSize(width: expandedWidth,
+                      height: min(preferredHeight, screen.height - 48 - quickAccessBottomInset))
+    }
+
     var sectionColumns: Int { expandedWidth >= 440 ? 4 : 2 }
 
     func sectionPickerSize(count: Int, searching: Bool = false) -> CGSize {

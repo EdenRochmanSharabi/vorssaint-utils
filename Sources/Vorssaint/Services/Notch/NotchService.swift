@@ -53,6 +53,7 @@ final class NotchService: ObservableObject {
     @Published var pinned = false
     @Published private(set) var selected: NotchModule = .controls
     @Published private(set) var showingAppPanel = false
+    @Published private(set) var showingKeepAwake = false
     @Published private(set) var showingSections = false
     @Published private(set) var sectionQuery = ""
     @Published var highlightedSection: NotchModule?
@@ -161,6 +162,9 @@ final class NotchService: ObservableObject {
     var expandedSize: CGSize {
         if showingSections {
             return geometry.sectionPickerSize(count: filteredSections.count, searching: !sectionQuery.isEmpty)
+        }
+        if showingKeepAwake {
+            return geometry.keepAwakeSize(active: KeepAwakeManager.shared.isActive)
         }
         let controls = NotchSupport.controls()
         let sliders = controls.filter { $0 == .volume || $0 == .brightness }.count
@@ -284,6 +288,7 @@ final class NotchService: ObservableObject {
         let selection = modules.contains(selected) ? selected : modules.first ?? .controls
         if selected != selection { selected = selection }
         if let selectedMetric, !metricIsAvailable(selectedMetric) { self.selectedMetric = nil }
+        if showingKeepAwake, !AppFeature.keepAwake.isAvailable { showingKeepAwake = false }
     }
 
     private func metricIsAvailable(_ metric: MetricDetailKind) -> Bool {
@@ -343,6 +348,7 @@ final class NotchService: ObservableObject {
         notice = nil
         noticeExpanded = false
         showingAppPanel = false
+        showingKeepAwake = false
         showingSections = false
         sectionQuery = ""
         highlightedSection = nil
@@ -373,7 +379,8 @@ final class NotchService: ObservableObject {
     }
 
     func open(_ module: NotchModule? = nil, pinned: Bool = false, takeFocus: Bool = true,
-              appPanel: Bool = false, metric: MetricDetailKind? = nil, feedback: Bool = true, sections: Bool = false) {
+              appPanel: Bool = false, metric: MetricDetailKind? = nil, feedback: Bool = true, sections: Bool = false,
+              keepAwake: Bool = false) {
         guard NotchSupport.isEnabled(), !suspended else { return }
         if !running || self.panel == nil { syncWithPreferences() }
         else { refreshModules() }
@@ -382,6 +389,7 @@ final class NotchService: ObservableObject {
         let metric = metric.flatMap { metricIsAvailable($0) ? $0 : nil }
         let changesPresentation = !expanded || selected != destination
             || showingAppPanel != appPanel || selectedMetric != metric || showingSections != sections
+            || showingKeepAwake != keepAwake
         if changesPresentation, destination == .tools, !appPanel, !sections, metric == nil {
             QuickLauncherService.shared.prepareForPresentation()
         }
@@ -393,6 +401,7 @@ final class NotchService: ObservableObject {
         mutatePresentation(transitionContent: changesPresentation ? (expanded ? .replace : .reveal) : .none) {
             showingAppPanel = appPanel
             showingSections = sections
+            showingKeepAwake = keepAwake
             if selected != destination { selected = destination }
             if pinned { self.pinned = true }
             selectedMetric = metric
@@ -423,6 +432,7 @@ final class NotchService: ObservableObject {
             peeking = false
             selectedMetric = nil
             showingAppPanel = false
+            showingKeepAwake = false
             showingSections = false
             sectionQuery = ""
             highlightedSection = nil
@@ -674,9 +684,18 @@ final class NotchService: ObservableObject {
         open(.system, metric: metric)
     }
 
+    func showKeepAwakeDetail() {
+        guard AppFeature.keepAwake.isAvailable else { return }
+        open(.controls, keepAwake: true)
+    }
+
     func goBack() {
-        let changesPresentation = selectedMetric != nil || showingAppPanel
-        mutatePresentation(transitionContent: changesPresentation ? .replace : .none) { selectedMetric = nil; showingAppPanel = false }
+        let changesPresentation = selectedMetric != nil || showingAppPanel || showingKeepAwake
+        mutatePresentation(transitionContent: changesPresentation ? .replace : .none) {
+            selectedMetric = nil
+            showingAppPanel = false
+            showingKeepAwake = false
+        }
         syncVisibleConsumers()
         if changesPresentation { provideHapticFeedback() }
     }
