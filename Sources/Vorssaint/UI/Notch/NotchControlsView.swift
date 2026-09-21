@@ -369,7 +369,6 @@ private struct NotchLongPressButtonStyle: PrimitiveButtonStyle {
                         .gesture(DragGesture(minimumDistance: 0, coordinateSpace: .local)
                             .onChanged { value in
                                 let inside = CGRect(origin: .zero, size: geo.size)
-                                    .insetBy(dx: -20, dy: -20)
                                     .contains(value.location)
                                 if !inside {
                                     pressed = false
