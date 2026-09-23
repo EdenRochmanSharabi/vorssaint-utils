@@ -246,7 +246,7 @@ struct NotchView: View {
 
     private var scrollsVertically: Bool {
         guard !service.showingAppPanel else { return false }
-        return contentOverflows || service.selectedMetric != nil
+        return contentOverflows || service.selectedMetric != nil || service.showingKeepAwake
             || (service.selected == .captures && service.captureContent != nil)
             || (service.selected == .tools && launcher.isEditing && launcher.activeUtility == nil)
     }

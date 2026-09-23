@@ -112,7 +112,6 @@ enum NotchLayout {
     static let rowSpacing: CGFloat = 10
     static let cardHeight: CGFloat = 96
     static let minimumCardHeight: CGFloat = 68
-    static let actionHeight: CGFloat = 52
     static let shortcutHeight: CGFloat = 74
     static let shortcutWidth: CGFloat = 76
     static let shortcutSpacing: CGFloat = 8
@@ -1137,7 +1136,7 @@ struct NotchGeometry: Equatable {
                       height: min(preferredHeight, screen.height - 48 - quickAccessBottomInset))
     }
     func keepAwakeSize(active: Bool) -> CGSize {
-        var preferredHeight = safeContentTop + NotchLayout.chromeHeight + (active ? 215 : 255)
+        var preferredHeight = headerTopInset + headerChromeHeight + (active ? 215 : 255)
         if layout == .custom { preferredHeight = min(preferredHeight, customHeight) }
         return CGSize(width: expandedWidth,
                       height: min(preferredHeight, screen.height - 48 - quickAccessBottomInset))

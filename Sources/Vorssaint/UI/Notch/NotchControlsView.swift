@@ -457,7 +457,6 @@ struct NotchActionTile: View {
     let title: String
     var active = false
     var accent: NotchTileAccent = .selection
-    var stacked = false
     var longPressAction: (() -> Void)? = nil
     let action: () -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -477,27 +476,24 @@ struct NotchActionTile: View {
     }
 
     private var tile: some View {
-        let layout = stacked ? AnyLayout(VStackLayout(spacing: 6)) : AnyLayout(HStackLayout(spacing: 10))
-        return layout {
+        VStack(spacing: 6) {
             Image(systemName: symbol).font(.system(size: 17, weight: .medium))
                 .foregroundStyle(active ? accent.glyph : .white.opacity(0.85))
                 .contentTransition(.symbolEffect(.replace))
-                .frame(width: stacked ? 40 : 24, height: stacked ? 40 : 24)
-                .background(stacked ? (active ? accent.fill : Color.white.opacity(0.075)) : .clear, in: Circle())
+                .frame(width: 40, height: 40)
+                .background(active ? accent.fill : Color.white.opacity(0.075), in: Circle())
                 .animation(reduceMotion ? nil : .smooth(duration: 0.26), value: symbol)
-            Text(title).font(.system(size: stacked ? 11 : 12, weight: .medium))
-                .foregroundStyle(!stacked && active ? accent.glyph : .white)
-                .lineLimit(2).multilineTextAlignment(stacked ? .center : .leading)
+            Text(title).font(.system(size: 11, weight: .medium))
+                .foregroundStyle(.white)
+                .lineLimit(2).multilineTextAlignment(.center)
                 .minimumScaleFactor(0.85)
                 .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: .infinity, alignment: stacked ? .center : .leading)
-                .frame(height: stacked ? 28 : 34, alignment: stacked ? .top : .center)
+                .frame(maxWidth: .infinity)
+                .frame(height: 28, alignment: .top)
         }
-        .padding(.horizontal, stacked ? 4 : 12)
+        .padding(.horizontal, 4)
         .frame(maxWidth: .infinity)
-        .frame(height: stacked ? NotchLayout.shortcutHeight : NotchLayout.actionHeight)
-        .background(stacked ? .clear : (active ? accent.fill : Color.white.opacity(0.075)),
-                    in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .frame(height: NotchLayout.shortcutHeight)
         .animation(reduceMotion ? nil : .smooth(duration: 0.26), value: active)
         .contentShape(RoundedRectangle(cornerRadius: 14))
     }
@@ -585,17 +581,18 @@ struct NotchKeepAwakeView: View {
     @AppStorage(DefaultsKey.keepAwakeActiveIcon) private var keepAwakeActiveIcon = KeepAwakeActiveIcon.vorssaint.rawValue
     @AppStorage(DefaultsKey.keepAwakeIconTint) private var keepAwakeIconTint = KeepAwakeIconTint.orange.rawValue
     @State private var untilTime = Date()
+    @State private var useEndTime = false
     @State private var showingIconPicker = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var pickerTransition: AnyTransition {
-        reduceMotion ? .opacity : .asymmetric(insertion: .move(edge: .trailing),
-                                               removal: .move(edge: .trailing)).combined(with: .opacity)
+        reduceMotion ? .identity : .asymmetric(insertion: .move(edge: .trailing),
+                                                removal: .move(edge: .trailing)).combined(with: .opacity)
     }
 
     private var controlsTransition: AnyTransition {
-        reduceMotion ? .opacity : .asymmetric(insertion: .move(edge: .leading),
-                                               removal: .move(edge: .leading)).combined(with: .opacity)
+        reduceMotion ? .identity : .asymmetric(insertion: .move(edge: .leading),
+                                                removal: .move(edge: .leading)).combined(with: .opacity)
     }
 
     var body: some View {
@@ -646,28 +643,25 @@ struct NotchKeepAwakeView: View {
                 }
             }
         } else {
-            HStack {
-                Text(l10n.s.durationLabel)
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-                Spacer(minLength: 8)
-                DurationPicker(selection: $defaultDuration)
+            Picker(l10n.s.durationLabel, selection: $useEndTime) {
+                Text(l10n.s.durationLabel).tag(false)
+                Text(l10n.s.keepAwakeUntilLabel).tag(true)
             }
-            HStack {
-                Text(l10n.s.keepAwakeUntilLabel)
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-                Spacer(minLength: 8)
-                DatePicker("", selection: $untilTime, displayedComponents: .hourAndMinute)
-                    .labelsHidden()
-                    .datePickerStyle(.stepperField)
-                    .controlSize(.small)
-                    .fixedSize()
-                    .accessibilityLabel(l10n.s.keepAwakeUntilLabel)
-                chip(l10n.s.keepAwakeUntilStart) {
-                    awake.activate(until: KeepAwakeAutomationSupport.resolvedUntilDate(picked: untilTime, now: Date()))
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            if useEndTime {
+                KeepAwakeEndTimePicker(selection: $untilTime)
+            } else {
+                HStack {
+                    Image(systemName: "timer")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                    DurationPicker(selection: $defaultDuration)
+                    Spacer(minLength: 0)
                 }
             }
+            chip(l10n.s.keepAwakeUntilStart, action: startSession)
+                .frame(maxWidth: .infinity)
         }
         Divider().overlay(.white.opacity(0.1))
         optionToggle(icon: "macbook", title: l10n.s.clamshellTitle,
@@ -780,11 +774,19 @@ struct NotchKeepAwakeView: View {
         Binding(get: { awake.isActive },
                 set: { on in
                     if on {
-                        awake.activate(minutes: defaultDuration)
+                        startSession()
                     } else if awake.isActive {
                         awake.toggle()
                     }
                 })
+    }
+
+    private func startSession() {
+        if useEndTime {
+            awake.activate(until: KeepAwakeAutomationSupport.resolvedUntilDate(picked: untilTime, now: Date()))
+        } else {
+            awake.activate(minutes: defaultDuration)
+        }
     }
 
     private func extendChip(_ minutes: Int) -> some View {

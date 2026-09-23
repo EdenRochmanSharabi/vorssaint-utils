@@ -13,6 +13,7 @@ enum NotchDestinationContract {
         var isKeyWindow = true
         var acceptsKeyFocus = false
         func makeKey() {}
+        func resignKey() {}
     }
     final class Host { func containsHover(_ point: CGPoint) -> Bool { false } }
     enum NSEvent { static let mouseLocation = CGPoint.zero }
@@ -39,7 +40,6 @@ enum NotchDestinationContract {
 
     class State {
         var acceptsSystemFeedback = true
-        func collapse() { expanded = false }
         var hiddenInFullscreen = false
         var running = true
         var session = NotchSessionState()
@@ -68,8 +68,10 @@ enum NotchDestinationContract {
         var presentationTearDowns = 0
         var captureControlsCancel: (() -> Void)?
         var captureClose: (() -> Void)?
+        var sectionRow = 0
         func mutatePresentation(transitionContent: NotchContentTransition, _ change: () -> Void) { change() }
         func installEventMonitors() {}
+        func removeEventMonitors() {}
         func syncVisibleConsumers() { requestedDetail = selectedMetric }
         func provideHapticFeedback() {}
         var heldDrag = false
@@ -79,24 +81,6 @@ enum NotchDestinationContract {
         func endCaptureControls() {}
         func clearCapture() { captureControlsCancel = nil; captureClose = nil }
         func tearDownPresentation() { expanded = false; presentationTearDowns += 1 }
-        func goBack() {
-            let changesPresentation = selectedMetric != nil || showingAppPanel || showingKeepAwake
-            mutatePresentation(transitionContent: changesPresentation ? .replace : .none) {
-                selectedMetric = nil
-                showingAppPanel = false
-                showingKeepAwake = false
-            }
-            syncVisibleConsumers()
-        }
-        func collapse() {
-            mutatePresentation(transitionContent: expanded ? .dismiss : .none) {
-                expanded = false
-                selectedMetric = nil
-                showingAppPanel = false
-                showingKeepAwake = false
-                showingSections = false
-            }
-        }
     }
 
     static func run(_ suite: TestSuite) {
@@ -412,15 +396,3 @@ enum NotchDestinationContract {
     }
 }
 
-extension NotchDestinationContract.Service {
-    func toggleSections() {
-        guard captureControls == nil, !heldDrag else { return }
-        if showingSections {
-            open(appPanel: showingAppPanel, metric: selectedMetric, keepAwake: showingKeepAwake)
-        } else {
-            sectionQuery = ""
-            highlightedSection = selected
-            open(appPanel: showingAppPanel, metric: selectedMetric, sections: true, keepAwake: showingKeepAwake)
-        }
-    }
-}
