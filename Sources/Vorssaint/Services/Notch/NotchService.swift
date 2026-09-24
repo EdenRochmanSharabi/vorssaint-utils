@@ -182,7 +182,7 @@ final class NotchService: ObservableObject {
             let awake = KeepAwakeManager.shared
             let contentHeight: CGFloat
             if keepAwakeIconPickerVisible {
-                contentHeight = 160
+                contentHeight = 170
             } else if awake.isActive {
                 contentHeight = awake.endDate != nil ? 215 : 175
             } else {

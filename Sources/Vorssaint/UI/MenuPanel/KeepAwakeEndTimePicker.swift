@@ -43,6 +43,7 @@ struct KeepAwakeEndTimePicker: View {
             }
         }
         .onChange(of: isPresented) { onPopoverChange?(isPresented) }
+        .onDisappear { onPopoverChange?(false) }
     }
 
     private var editor: some View {

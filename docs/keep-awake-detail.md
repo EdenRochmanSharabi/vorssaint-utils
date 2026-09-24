@@ -6,13 +6,13 @@ Long-pressing the Keep Awake shortcut in the Controls rail opens a detail page i
 
 **Active session.** A toggle, the remaining time (live countdown) or "until disabled" label, and extend chips (+15 / +30 / +60 min). The extend chips use the same capsule button style as the rest of the island.
 
-**Inactive.** A toggle, a segmented Duration / Until picker matching the app panel's layout, and a single Start button that activates the chosen mode. The Until picker opens its hour and minute grid in a popover; the island stays open while the popover is showing, the same way the files page does for its actions popover.
+**Inactive.** A toggle, a segmented Duration / Until picker matching the app panel's layout, and a single Start button that activates the chosen mode. The Until picker opens its hour and minute grid in a popover; the island stays open while the popover is showing, the same way the files page does for its actions popover. The picker also drops the hold when it disappears, so activating the session while the popover is open (from a global shortcut or an automation rule) does not leave the island stuck open.
 
 **Options (always visible).** Clamshell mode toggle with setup status caption, display sleep toggle, and a button that navigates to the icon picker sub-page. Both toggles carry their title for VoiceOver even though the label is visually hidden. The icon picker replaces the controls page with its own back button; with Reduce Motion enabled, both transitions are instant.
 
 ## Layout
 
-The detail card uses `keepAwakeSize(contentHeight:)` on the expanded geometry. Each state computes its own content height from the rows it shows: 215 for an active timed session (toggle, countdown, extend chips), 175 for an active indefinite session (toggle, countdown, options), 285 for the inactive page (toggle, segmented picker, duration or until picker, start button, options), and 160 for the icon picker sub-page. The height is built from `headerTopInset` and `headerChromeHeight`, the same base every other expanded page uses, so the island stays consistent on displays with or without a camera cutout. When a custom height leaves less room, the page scrolls vertically like the metric detail.
+The detail card uses `keepAwakeSize(contentHeight:)` on the expanded geometry. Each state computes its own content height from the rows it shows: 215 for an active timed session (toggle, countdown, extend chips), 175 for an active indefinite session (toggle, countdown, options), 285 for the inactive page (toggle, segmented picker, duration or until picker, start button, options), and 170 for the icon picker sub-page (back row, compact picker with padding, scroll view inset). The height is built from `headerTopInset` and `headerChromeHeight`, the same base every other expanded page uses, so the island stays consistent on displays with or without a camera cutout. When a custom height leaves less room, the page scrolls vertically like the metric detail.
 
 ## Navigation
 
