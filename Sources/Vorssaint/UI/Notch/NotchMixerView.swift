@@ -176,10 +176,17 @@ private struct NotchMasterFader: View {
     private var level: Double? { mixer.systemOutputVolume.map { mixer.systemOutputMuted == true ? 0 : $0 } }
     private var muted: Bool { mixer.systemOutputMuted == true }
 
+    /// The fader already shows the level it sets, so the open header keeps
+    /// its title instead of repeating it.
+    private func adjustOutput(volume: Double? = nil, muted: Bool? = nil) {
+        NotchService.shared.noteOwnVolumeAdjustment()
+        mixer.requestOutputAdjustment(volume: volume, muted: muted)
+    }
+
     var body: some View {
         VStack(spacing: 6) {
             Button {
-                if let muted = mixer.systemOutputMuted { mixer.requestOutputAdjustment(muted: !muted) }
+                if let muted = mixer.systemOutputMuted { adjustOutput(muted: !muted) }
             } label: {
                 Image(systemName: muted ? "speaker.slash.fill" : "speaker.wave.2.fill")
                     .font(.system(size: 15, weight: .medium))
@@ -193,13 +200,13 @@ private struct NotchMasterFader: View {
             .disabled(mixer.systemOutputMuted == nil)
             .accessibilityLabel(muted ? l10n.s.actionUnmute : l10n.s.actionMute)
             if let level {
-                NotchLevelSlider(value: Binding(get: { level }, set: { mixer.requestOutputAdjustment(volume: $0) }),
+                NotchLevelSlider(value: Binding(get: { level }, set: { adjustOutput(volume: $0) }),
                                  label: l10n.s.mixerSystemOutputTitle, vertical: true, trackThickness: 28)
                     .frame(width: 40, height: NotchMixerFaderLayout.trackHeight(in: height))
                 NotchEditablePercent(percent: Int((level * 100).rounded()), maximum: 100,
                                      editorID: "notch-system-output", editingID: $editingVolumeID,
                                      label: l10n.s.mixerSystemOutputTitle, height: 28) {
-                    mixer.requestOutputAdjustment(volume: $0)
+                    adjustOutput(volume: $0)
                 }
             } else {
                 Text(l10n.s.mixerOutputUnavailable).font(.system(size: 10)).foregroundStyle(.secondary)
@@ -267,6 +274,7 @@ private struct NotchMixerOptions: View {
     @Binding var editingVolumeID: String?
     @ObservedObject private var mixer = AppVolumeMixer.shared
     @ObservedObject private var input = AudioInputDeviceManager.shared
+    @ObservedObject private var audioPriority = AudioPriorityService.shared
     @ObservedObject private var micMute = MicMuteService.shared
     @ObservedObject private var l10n = L10n.shared
     private var outputDevices: [MixerOutputDevice] { mixer.outputDevices.filter(\.canBeDefaultOutput) }
@@ -275,8 +283,14 @@ private struct NotchMixerOptions: View {
         mixer.outputDevices.first(where: { $0.uid == mixer.currentSystemSoundOutputDeviceUID })?.name ?? l10n.s.mixerOutputUnavailable
     }
     private var microphoneName: String {
-        guard let uid = input.preferredInputDeviceUID else { return l10n.s.mixerOutputDefault }
+        guard let uid = selectedMicrophoneUID else { return l10n.s.mixerOutputDefault }
         return input.inputDevices.first(where: { $0.uid == uid })?.name ?? l10n.s.mixerInputUnavailable
+    }
+    private var selectedMicrophoneUID: String? {
+        MixerRoutingSupport.selectedInputDeviceUID(
+            preferredUID: input.preferredInputDeviceUID,
+            currentUID: input.currentInputDeviceUID,
+            priorityIsActive: audioPriority.inputPriorityEnabled)
     }
 
     var body: some View {
@@ -319,13 +333,19 @@ private struct NotchMixerOptions: View {
     @ViewBuilder private var microphone: some View {
         row(l10n.s.mixerInputTitle, symbol: micMute.isMuted ? "mic.slash" : "mic") {
             NotchDeviceMenu(title: l10n.s.mixerInputTooltip, current: microphoneName, width: 200, lines: 1, alignment: .trailing,
-                            items: [NotchMenuItem(title: l10n.s.mixerOutputDefault, checked: input.preferredInputDeviceUID == nil) {
+                            items: [NotchMenuItem(title: l10n.s.mixerOutputDefault, checked: selectedMicrophoneUID == nil) {
+                                guard !audioPriority.inputPriorityEnabled else { return }
                                 input.setPreferredInputDeviceUID(nil)
                             }] + input.inputDevices.map { device in
-                                NotchMenuItem(title: device.name, checked: device.uid == input.preferredInputDeviceUID) {
-                                    input.setPreferredInputDeviceUID(device.uid)
+                                NotchMenuItem(title: device.name, checked: device.uid == selectedMicrophoneUID) {
+                                    if audioPriority.inputPriorityEnabled {
+                                        input.setCurrentInputDeviceUID(device.uid)
+                                    } else {
+                                        input.setPreferredInputDeviceUID(device.uid)
+                                    }
                                 }
-                            } + (input.preferredUnavailable && input.preferredInputDeviceUID != nil
+                            } + (!audioPriority.inputPriorityEnabled
+                                 && input.preferredUnavailable && input.preferredInputDeviceUID != nil
                                  ? [NotchMenuItem(title: l10n.s.mixerInputUnavailable, checked: true)] : []))
         }
         if let volume = input.inputVolume {
@@ -364,7 +384,7 @@ private struct NotchMixerOptions: View {
         }
         if input.inputDevices.isEmpty {
             message(l10n.s.mixerInputNoDevices, systemImage: "mic.slash")
-        } else if input.preferredUnavailable {
+        } else if !audioPriority.inputPriorityEnabled, input.preferredUnavailable {
             message(l10n.s.mixerInputFallback, systemImage: "mic.badge.xmark")
         } else if let lastError = input.lastError {
             message(String(format: l10n.s.mixerInputErrorFormat, lastError), systemImage: "exclamationmark.triangle")

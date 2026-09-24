@@ -72,6 +72,8 @@ enum NotchMusicVisibilityTests {
         var dragPlaceholder = false
         var hasTimerActivity = false
         var hasDownloadActivity = false
+        var hasAgentActivity = false
+        var agentStripWing: CGFloat = 58
         var notchNeedsMonitor = false
         var heldDrag = false
         var pinned = false
@@ -140,6 +142,13 @@ enum NotchMusicVisibilityTests {
             reopened.syncVisibleConsumers()
             suite.expect(!reader.running && reopened.compactActivity == nil && reopened.surfaceSize == closed,
                    "a fresh island honors saved Nothing while playback metadata is still available")
+            defaults.set(true, forKey: DefaultsKey.notchTrackChange)
+            service.syncVisibleConsumers()
+            suite.expect(reader.running && service.compactActivity == nil && service.surfaceSize == closed,
+                   "announcing new songs keeps the reader on with Nothing at rest, without a music strip")
+            defaults.set(false, forKey: DefaultsKey.notchTrackChange)
+            service.syncVisibleConsumers()
+            suite.expect(!reader.running, "turning new song notices off stops that reader again")
             for automatic in [false, true] {
                 defaults.set(automatic, forKey: DefaultsKey.notchShowPlayingMusic)
                 for module in [NotchModule.music, .controls] {
