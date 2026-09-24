@@ -55,6 +55,8 @@ enum NotchMusicVisibilityTests {
         var showingAppPanel = false
         var showingSections = false
         var showingKeepAwake = false
+        var keepAwakeIconPickerVisible = false
+        var keepAwakeInteractionActive = false
         var selected: NotchModule = .controls
         var selectedMetric: Metric?
         var modules: [NotchModule] = []

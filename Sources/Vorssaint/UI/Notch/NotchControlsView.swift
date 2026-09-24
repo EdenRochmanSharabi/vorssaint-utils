@@ -616,6 +616,9 @@ struct NotchKeepAwakeView: View {
             untilTime = Date().addingTimeInterval(3600)
         }
         .onChange(of: awake.isActive) { service.refreshPresentation() }
+        .onChange(of: awake.endDate != nil) { service.refreshPresentation() }
+        .onChange(of: showingIconPicker) { service.keepAwakeIconPickerVisible = showingIconPicker; service.refreshPresentation() }
+        .onDisappear { service.keepKeepAwakeInteractionOpen(false); service.keepAwakeIconPickerVisible = false }
     }
 
     @ViewBuilder
@@ -650,7 +653,8 @@ struct NotchKeepAwakeView: View {
             .pickerStyle(.segmented)
             .labelsHidden()
             if useEndTime {
-                KeepAwakeEndTimePicker(selection: $untilTime)
+                KeepAwakeEndTimePicker(selection: $untilTime,
+                                      onPopoverChange: { service.keepKeepAwakeInteractionOpen($0) })
             } else {
                 HStack {
                     Image(systemName: "timer")
@@ -738,7 +742,7 @@ struct NotchKeepAwakeView: View {
                 }
             }
             Spacer(minLength: 8)
-            Toggle("", isOn: isOn)
+            Toggle(title, isOn: isOn)
                 .toggleStyle(.switch)
                 .controlSize(.mini)
                 .labelsHidden()

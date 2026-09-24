@@ -57,6 +57,7 @@ final class NotchService: ObservableObject {
     @Published private(set) var selected: NotchModule = .controls
     @Published private(set) var showingAppPanel = false
     @Published private(set) var showingKeepAwake = false
+    @Published var keepAwakeIconPickerVisible = false
     @Published private(set) var showingSections = false
     @Published private(set) var sectionQuery = ""
     @Published var highlightedSection: NotchModule? { didSet { revealHighlightedSection() } }
@@ -100,11 +101,13 @@ final class NotchService: ObservableObject {
     private var openedByHover = false
     private var trackingMenu = false
     private var fileInteractionActive = false
+    private var keepAwakeInteractionActive = false
     private var keepsWorkingSurface: Bool {
         pinned || trackingMenu || NSApp.modalWindow != nil || panel?.attachedSheet != nil
             || NotchLyricsService.shared.isImporting
             || (expanded && !showingSections && selected == .calendar && Permissions.shared.keepsCalendarPrompt)
             || (expanded && !showingSections && selected == .files && fileInteractionActive)
+            || (expanded && !showingSections && selected == .controls && showingKeepAwake && keepAwakeInteractionActive)
             || CameraPreviewService.shared.keepsNotchPermissionPrompt
             || (expanded && !showingSections && selected == .captures && captureContent != nil)
             || (expanded && !showingSections && selected == .tools && (QuickLauncherService.shared.activeUtility != nil || QuickLauncherService.shared.isEditing))
@@ -176,7 +179,16 @@ final class NotchService: ObservableObject {
             return geometry.sectionPickerSize(count: filteredSections.count)
         }
         if showingKeepAwake {
-            return geometry.keepAwakeSize(active: KeepAwakeManager.shared.isActive)
+            let awake = KeepAwakeManager.shared
+            let contentHeight: CGFloat
+            if keepAwakeIconPickerVisible {
+                contentHeight = 160
+            } else if awake.isActive {
+                contentHeight = awake.endDate != nil ? 215 : 175
+            } else {
+                contentHeight = 285
+            }
+            return geometry.keepAwakeSize(contentHeight: contentHeight)
         }
         let controls = NotchSupport.controls()
         let sliders = controls.filter { $0 == .volume || $0 == .brightness }.count
@@ -316,7 +328,11 @@ final class NotchService: ObservableObject {
         let selection = modules.contains(selected) ? selected : modules.first ?? .controls
         if selected != selection { selected = selection }
         if let selectedMetric, !metricIsAvailable(selectedMetric) { self.selectedMetric = nil }
-        if showingKeepAwake, !AppFeature.keepAwake.isAvailable { showingKeepAwake = false }
+        if showingKeepAwake, !AppFeature.keepAwake.isAvailable {
+            showingKeepAwake = false
+            keepAwakeIconPickerVisible = false
+            keepAwakeInteractionActive = false
+        }
     }
 
     private func metricIsAvailable(_ metric: MetricDetailKind) -> Bool {
@@ -371,6 +387,8 @@ final class NotchService: ObservableObject {
         dragPlaceholder = false
         endFileDrop()
         fileInteractionActive = false
+        keepAwakeInteractionActive = false
+        keepAwakeIconPickerVisible = false
         heldDrag = false
         selectedMetric = nil
         pinned = false
@@ -465,6 +483,8 @@ final class NotchService: ObservableObject {
             selectedMetric = nil
             showingAppPanel = false
             showingKeepAwake = false
+            keepAwakeIconPickerVisible = false
+            keepAwakeInteractionActive = false
             showingSections = false
             sectionQuery = ""
             highlightedSection = nil
@@ -802,6 +822,8 @@ final class NotchService: ObservableObject {
             selectedMetric = nil
             showingAppPanel = false
             showingKeepAwake = false
+            keepAwakeIconPickerVisible = false
+            keepAwakeInteractionActive = false
         }
         syncVisibleConsumers()
         if changesPresentation { provideHapticFeedback() }
@@ -1039,6 +1061,11 @@ final class NotchService: ObservableObject {
 
     func keepFileInteractionOpen(_ active: Bool) {
         fileInteractionActive = active
+        hover(false)
+    }
+
+    func keepKeepAwakeInteractionOpen(_ active: Bool) {
+        keepAwakeInteractionActive = active
         hover(false)
     }
 

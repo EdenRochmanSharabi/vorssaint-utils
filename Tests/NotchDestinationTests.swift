@@ -78,6 +78,8 @@ enum NotchDestinationContract {
         var captureControls: Bool?
         var sectionQuery = ""
         var highlightedSection: NotchModule?
+        var keepAwakeIconPickerVisible = false
+        var keepAwakeInteractionActive = false
         func endCaptureControls() {}
         func clearCapture() { captureControlsCancel = nil; captureClose = nil }
         func tearDownPresentation() { expanded = false; presentationTearDowns += 1 }
