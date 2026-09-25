@@ -19,6 +19,7 @@ struct GeneralSettings: View {
     @AppStorage(DefaultsKey.hotkeyEnabled) private var hotkeyEnabled = true
     @AppStorage(DefaultsKey.musicBlockEnabled) private var musicBlockEnabled = false
     @AppStorage(DefaultsKey.musicBlockReplacementPath) private var musicBlockReplacementPath = ""
+    @AppStorage(DefaultsKey.musicBlockPlayReplacement) private var musicBlockPlayReplacement = true
 
     private var text: GeneralSettingsStrings { FeatureStrings.generalSettings(l10n.language) }
     private var appearanceStrings: AppearanceStrings { FeatureStrings.appearance(l10n.language) }
@@ -35,6 +36,20 @@ struct GeneralSettings: View {
                 appearanceCard
                 menuBarCard
                     .settingsSectionAnchor(.panelConfiguration, cornerRadius: 16)
+                if AppFeature.mixer.isAvailable {
+                    MixerSection(settingsMode: true)
+                        .settingsSectionAnchor(.mixer, cornerRadius: 16)
+                }
+                if AppFeature.soundOutputSwitcher.isAvailable {
+                    SettingsCard(title: l10n.s.soundOutputSwitcherTitle) {
+                        SoundOutputSwitcherControls()
+                    }
+                    .settingsSectionAnchor(.soundOutputSwitcher, cornerRadius: 16)
+                }
+                if AppFeature.audioPriority.isAvailable {
+                    audioPriorityCard
+                        .settingsSectionAnchor(.audioPriority, cornerRadius: 16)
+                }
                 if AppFeature.keepAwake.isAvailable {
                     shortcutCard
                 }
@@ -135,6 +150,12 @@ struct GeneralSettings: View {
         }
     }
 
+    private var audioPriorityCard: some View {
+        SettingsCard(title: l10n.s.audioPrioritySection) {
+            AudioPriorityDisclosure(initiallyExpanded: true, showsHeader: false)
+        }
+    }
+
     private var shortcutCard: some View {
         SettingsCard(title: l10n.s.globalHotkeySection) {
             SettingsRow(symbol: "keyboard", title: l10n.s.hotkeyToggle, caption: l10n.s.hotkeyCaption) {
@@ -198,6 +219,10 @@ struct GeneralSettings: View {
                     }
                 }
                 .padding(.leading, settingsRowTextInset)
+                if !musicBlockReplacementPath.isEmpty {
+                    Toggle(l10n.s.musicBlockPlayReplacement, isOn: $musicBlockPlayReplacement)
+                        .padding(.leading, settingsRowTextInset)
+                }
                 if musicBlockReplacementRejected {
                     Text(l10n.s.musicBlockReplacementBlocked)
                         .font(.caption)

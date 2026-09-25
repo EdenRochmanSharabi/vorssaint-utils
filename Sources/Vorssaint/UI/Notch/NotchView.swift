@@ -90,7 +90,7 @@ struct NotchView: View {
                 }
                 .padding(.horizontal, 18)
                 .padding(.top, service.geometry.safeContentTop)
-        } else if let notice = service.notice {
+        } else if let notice = service.notice ?? (service.peeking ? nil : service.departingNotice) {
             if service.noticeExpanded, let content = notice.notification {
                 NotchNotificationPreviewView(notice: notice, content: content, service: service)
                     .padding(.horizontal, NotchLayout.horizontalInset)
@@ -124,6 +124,7 @@ struct NotchView: View {
             case .timer: NotchTimerStrip(service: service)
             case .downloads: NotchDownloadStrip(service: service)
             case .agents: NotchAgentStrip(service: service)
+            case .calendar: NotchCalendarStrip(service: service)
             case .music: NotchMusicStrip(service: service)
             }
         } else {

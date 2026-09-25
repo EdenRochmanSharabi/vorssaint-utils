@@ -38,6 +38,29 @@ enum SettingsFeatureTests {
                "backup carries preferences, menu bar pins, Keep Awake appearance, language and hub availability")
         suite.expect(backupKeys.contains(DefaultsKey.launchAtLoginWanted),
                "the launch at login choice travels with the settings backup")
+        suite.expect(Defaults.registeredDefaults[DefaultsKey.musicBlockPlayReplacement] as? Bool == true
+                && backupKeys.contains(DefaultsKey.musicBlockPlayReplacement),
+               "replacement playback keeps the current default and its opt-out travels with settings backup")
+        let replacementOptOut = SettingsBackupSupport.payload(appVersion: "test") { key in
+            key == DefaultsKey.musicBlockPlayReplacement ? false : nil
+        }
+        suite.expect(SettingsBackupSupport.sanitizedSettings(from: replacementOptOut)?[
+                    DefaultsKey.musicBlockPlayReplacement] as? Bool == false,
+               "restoring a backup preserves the choice to open the replacement without playing")
+        let retiredDisplayBackup: [String: Any] = [
+            SettingsBackupSupport.formatVersionKey: SettingsBackupSupport.formatVersion,
+            SettingsBackupSupport.settingsKey: [DefaultsKey.notchDisplay: "chosen"],
+        ]
+        suite.expect(SettingsBackupSupport.sanitizedSettings(from: retiredDisplayBackup)?[DefaultsKey.notchDisplay] as? String
+                    == NotchDisplay.automatic.rawValue,
+               "a backup with a display mode this version does not offer restores the automatic choice")
+        let mainDisplayBackup: [String: Any] = [
+            SettingsBackupSupport.formatVersionKey: SettingsBackupSupport.formatVersion,
+            SettingsBackupSupport.settingsKey: [DefaultsKey.notchDisplay: NotchDisplay.main.rawValue],
+        ]
+        suite.expect(SettingsBackupSupport.sanitizedSettings(from: mainDisplayBackup)?[DefaultsKey.notchDisplay] as? String
+                    == NotchDisplay.main.rawValue,
+               "a backup keeps the main display choice")
         suite.expect(backupKeys.contains(DefaultsKey.cleaningModeKeepScreenVisible),
                "the cleaning mode keep screen visible choice travels with the settings backup")
         suite.expect(backupKeys.contains(DefaultsKey.appearance),
